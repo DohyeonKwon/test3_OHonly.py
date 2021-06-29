@@ -1,0 +1,72 @@
+from selenium import webdriver
+from selenium.webdriver.support.ui import Select
+import datetime
+import time
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+from tabulate import tabulate
+from pathlib import Path
+requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
+#Kinetics database 사이트 여는 코드
+driver=webdriver.Chrome("C:\chromedriver_win32\chromedriver.exe")
+url="https://kinetics.nist.gov/kinetics/index.jsp"
+driver.get(url)
+# # -----------------------------------------------------------------------------
+
+time.sleep(1)
+# 원하는 element를 기입 element 1에도 같은 방식으로 기입할 수 있음
+element2 = driver.find_element_by_name('text2')
+element2.send_keys("OH")
+# 여기에 O(3P) O(1D) 검색하여 사용
+time.sleep(0.5)
+element2.submit()
+# 검색한 페이지의 링크 정보 수집
+html = driver.page_source
+soup = BeautifulSoup(html, 'html.parser')
+links = soup.select('td > a')
+time.sleep(1)
+html = driver.page_source
+BS = BeautifulSoup(html, 'html.parser')
+
+# ----------------------------------------
+html = driver.page_source
+soup = BeautifulSoup(html, 'html.parser')
+links = soup.select('td > a')
+data_url = []
+# 검색한 페이지의 모든 링크 정보를 가져오는 코드
+for a in links:
+    href = a.attrs['href']
+    # text = a.string
+    # print(text,">",href)
+    print("https://kinetics.nist.gov/" + href)
+    data_url.append("https://kinetics.nist.gov/" + href)
+data_url = data_url[5:-1]
+# print(data_url)
+# ----------------------------------------------------------
+time.sleep(0.5)
+# 검색한 각 링크에 접속하여 데이터를 가져오는 코드
+for j in range(len(data_url)):
+    results = requests.get(data_url[j], verify=False)
+    html = results.text
+    BS = BeautifulSoup(html, 'html.parser')
+
+    table = BS.select('form> table')[1]
+    df = pd.read_html(str(table))
+    # print(tabulate(df[0], headers='keys', tablefmt='psql'))
+    # C = tabulate(df[0], headers='keys', tablefmt='plain', numalign="left")
+    # CHCl2CH2Cl + ·OH → Other Products + H2O
+
+    molecule = BS.select_one('div:nth-child(7) > font').text
+    # 분자식 상에 저장 불가능한 문자인 /와 * 제거하여 -로 교체하는식
+    if '/' in molecule:
+        molecule = molecule.replace('/', '_')
+        print(molecule)
+    elif '*' in molecule:
+        molecule = molecule.replace('*', '_')
+        print(molecule)
+
+    time.sleep(0.5)
+    df[0].to_csv(molecule+ ".csv")
+    time.sleep(0.5)
+    driver.get(url)
